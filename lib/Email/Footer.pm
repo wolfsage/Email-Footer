@@ -169,7 +169,9 @@ sub add_footers {
                      $self->text_template->{template}, $arg,
                    )
                  . "\r\n"
-                 . $self->text_template->{end_delim};
+                 . $self->text_template->{end_delim}
+                 . "\r\n";
+
 
     $footer =~ s/(?<!\r)\n/\r\n/g;
 
@@ -188,7 +190,8 @@ sub add_footers {
                      $self->html_template->{template}, $arg,
                    )
                  . "\r\n"
-                 . $self->html_template->{end_delim};
+                 . $self->html_template->{end_delim}
+                 . "\r\n";
 
     $footer =~ s/(?<!\r)\n/\r\n/g;
 
@@ -221,6 +224,7 @@ sub strip_footers {
       ^ \Q$start_del\E \r?$
       .*?
       ^ \Q$end_del\E \r?$
+      \r?\n?
     /msx;
 
     $text_stripper = sub {
