@@ -231,6 +231,8 @@ sub strip_footers {
       my $text = shift;
 
       $$text =~ s/$matcher//g;
+
+      $self->_strip_text_footers($matcher, $text);
     };
   }
 
@@ -245,6 +247,69 @@ sub strip_footers {
 
   return;
 }
+
+sub _strip_text_footer_helper {
+  my ($self, $matcher, $input) = @_;
+
+  if (ref $input eq 'ARRAY') {
+    my @base;
+    for (my $i = 0; $i < @$input; $i++) {
+      if (ref $input->[$i] eq 'ARRAY') {
+        push @base, $input->[$i];
+        next;
+      }
+
+      my $merge = $input->[$i];
+      delete $merge->{empty};
+      delete $merge->{separator};
+
+      while ($input->[$i+1] && ref $input->[$i+1] eq 'HASH') {
+        $i++;
+        $merge->{text} .= "\n" . $input->[$i]{text};
+        $merge->{raw}  .= "\n" . $input->[$i]{raw};
+      }
+
+      push @base, $merge;
+    }
+
+    return [ map {; $self->_strip_text_footer_helper($matcher, $_) } @base ];
+
+    return [ map {; $self->_strip_text_footer_helper($matcher, $_) } @$input ];
+  }
+
+  if ($input->{text}) {
+    if ($input->{text} =~ s/$matcher//g) {
+      return unless $input->{text};
+
+      # Ripping out the footer tends to leave long runs of whitespace.  Trim
+      # them down to something slightly less jarring. -- rjbs, 2015-06-25
+      $input->{text} =~ s/\n\n\n+/\n\n/g;
+
+      $input->{raw} = $input->{text};
+
+      my $quoter = $input->{quoter} || '';
+      $input->{raw} =~ s/^/$quoter /gm;
+      chomp $input->{raw};
+    }
+  }
+
+  return $input;
+}
+
+sub _strip_text_footers {
+  my ($self, $matcher, $content_ref) = @_;
+
+  require Text::Quoted;
+#  return unless $$content_ref =~ /[^-]-{43}[^-]/m;
+  my $quoted = Text::Quoted::extract($$content_ref);
+
+  my $stripped = $self->_strip_text_footer_helper($matcher, $quoted);
+
+  $$content_ref = Text::Quoted::combine_hunks( $stripped );
+
+  return;
+}
+
 
 1;
 __END__
