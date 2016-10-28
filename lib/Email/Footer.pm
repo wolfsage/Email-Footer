@@ -9,9 +9,11 @@ use Moose;
 use Module::Find;
 use Module::Runtime;
 
+use Carp qw(croak);
 use Try::Tiny;
 use Text::Quoted;
-use Carp qw(croak);
+use HTML::TreeBuilder;
+
 use namespace::autoclean;
 
 has renderer => (
@@ -44,6 +46,14 @@ has template => (
   isa  => 'HashRef[HashRef]',
   required => 1,
 );
+
+sub _tree_builder {
+  my $tree = HTML::TreeBuilder->new;
+
+  $tree->no_space_compacting(1);
+
+  return $tree;
+}
 
 sub text_template {
   my ($self) = @_;
@@ -86,7 +96,33 @@ sub BUILD {
       $self->html_template->{start_delim},
       $self->html_template->{end_delim},
       $self->html_template->{template},
-   );
+    );
+
+    my $tree = $self->_tree_builder;
+    $tree->parse_content($self->html_template->{start_delim});
+
+    my $div = $tree->look_down('_tag' => 'div');
+    unless ($div) {
+      croak("html_template start_delim must contain a start <div>")
+    }
+
+    my $id = $div->attr('id');
+    unless ($id) {
+      croak("html_template start_delim div must have an 'id' attribute");
+    }
+
+    $self->html_template->{start_delim_id} = $id;
+
+    my $style = $div->attr('style');
+    unless ($style) {
+      croak("html_template start_delim div must have a 'style' attribute");
+    }
+
+    # Remove all whitespace. When we compare we'll do the same. This is
+    # becuase some MUAs are evil and do this for some bizarre reason
+    $style =~ s/\s+//g;
+
+    $self->html_template->{start_delim_style} = $style;
   }
 
   for my $rw (findallmod 'Email::Footer::RW') {
@@ -200,7 +236,21 @@ sub add_footers {
     $html_adder = sub {
       my $text = shift;
 
-      $$text .= $footer;
+      my $tree = try {
+        my $tree = $self->_tree_builder;
+
+        $tree->parse_content($$text);
+
+        $tree;
+      };
+
+      if ($tree && (my $body = $tree->look_down('_tag' => 'body'))) {
+        $body->push_content(
+          HTML::Element->new('~literal', text => $footer)
+        );
+
+        $$text = $tree->as_HTML();
+      }
     };
   }
 

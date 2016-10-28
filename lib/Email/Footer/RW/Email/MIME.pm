@@ -47,6 +47,12 @@ sub walk_parts {
     } elsif ($part->content_type =~ m[text/html]i) {
       return unless $html_sub;
 
+      # Ensure an encoding that forces a correct maximum line length
+      # incase we rewrite longs to be too long
+      my $cte = $part->header('Content-Transfer-Encoding') // '';
+      $part->encoding_set('quoted-printable')
+        unless $cte =~ /\A (?: quoted-printable | base64 ) \z/ix;
+
       my $body = $part->body;
       $html_sub->(\$body);
       $part->body_set($body);
