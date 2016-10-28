@@ -112,4 +112,76 @@ EOF
   eq_or_diff($got, $expect, 'string returned to original form');
 };
 
+subtest "quoted html footer removal" => sub {
+  my $tfoot = <<'EOF';
+{ $group_name }<br />
+{ $group_url }<br />
+Powered by Perl<br />
+EOF
+
+  my $footer = Email::Footer->new({
+    template => {
+      html => {
+        start_delim => '<div id="heavy-footer" style="width: auto; margin: 0">',
+        end_delim   => '</div>',
+        template    => $tfoot,
+      },
+    },
+  });
+
+  my $email = Email::MIME->create(
+    header_str => [
+      From => 'my@address',
+      To   => 'your@address',
+    ],
+    parts => [
+      Email::MIME->create(
+        attributes => {
+          content_type => "text/html",
+          encoding     => "quoted-printable",
+          charset      => "UTF-8",
+        },
+        body_str => <<'EOF',
+<div dir="ltr">Oh <b>boy</b><br><div><div class="gmail_extra"><br><div class="gmail_quote">On Fri, Oct 28, 2016 at 1:02 PM,  <span dir="ltr">&lt;<a href="mailto:someone@example.net" target="_blank">someone@example.net</a>&gt;</span> wrote:<br><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex"><div><a href="https://example.net" target="_blank">Wow what an Email</a><div id="m_5048774373898288484heavy-footer" style="width:auto;margin:0">
+Better Faster Stronger<br>
+<a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs</a><br>
+Powered by Perl<br>
+</div>
+</div>
+</blockquote></div><br></div></div></div>
+EOF
+      ),
+    ],
+  );
+
+  # Verify initial state
+  for my $str (
+    "Better Faster Stronger",
+    "https://example.net/groups/bfs",
+    "Powered by Perl",
+  ) {
+    like(
+      $email->as_string,
+      qr/\Q$str\E/,
+      "footer exits"
+    );
+  }
+
+  # Now strip the footers
+  $footer->strip_footers($email);
+
+  # Verify initial state
+  for my $str (
+    "Better Faster Stronger",
+    "https://example.net/groups/bfs",
+    "Powered by Perl",
+  ) {
+    unlike(
+      $email->as_string,
+      qr/\Q$str\E/,
+      "footer cleared from quoted response"
+    );
+  }
+};
+
 done_testing;
