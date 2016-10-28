@@ -122,7 +122,7 @@ sub BUILD {
     # becuase some MUAs are evil and do this for some bizarre reason
     $style =~ s/\s+//g;
 
-    $self->html_template->{start_delim_style} = qr/\Q$style\E/i;
+    $self->html_template->{start_delim_style} = $style;
   }
 
   for my $rw (findallmod 'Email::Footer::RW') {
