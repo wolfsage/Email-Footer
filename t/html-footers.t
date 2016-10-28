@@ -91,7 +91,25 @@ EOF
   # Now strip the footer
   $footer->strip_footers($email);
 
-  eq_or_diff($email->as_string, $orig, 'string returned to original form');
+  $t1 = HTML::TreeBuilder->new;
+  $t1->no_space_compacting();
+
+  $t2 = HTML::TreeBuilder->new;
+  $t2->no_space_compacting();
+
+  $got = $t1->parse_content($email->body)->as_HTML();
+  $got =~ s/>/>\n/g;
+
+  $expect = $t2->parse_content(<<EOF)->as_HTML();
+<html><head><title>An email</title></head>
+<body>
+  <a href="https://example.net">Wow what an Email</a>
+</body>
+</html>
+EOF
+  $expect =~ s/>/>\n/g;
+
+  eq_or_diff($got, $expect, 'string returned to original form');
 };
 
 done_testing;

@@ -111,7 +111,7 @@ sub BUILD {
       croak("html_template start_delim div must have an 'id' attribute");
     }
 
-    $self->html_template->{start_delim_id} = $id;
+    $self->html_template->{start_delim_id_re} = qr/\Q$id\E/i;
 
     my $style = $div->attr('style');
     unless ($style) {
@@ -122,7 +122,7 @@ sub BUILD {
     # becuase some MUAs are evil and do this for some bizarre reason
     $style =~ s/\s+//g;
 
-    $self->html_template->{start_delim_style} = $style;
+    $self->html_template->{start_delim_style} = qr/\Q$style\E/i;
   }
 
   for my $rw (findallmod 'Email::Footer::RW') {
@@ -290,7 +290,30 @@ sub strip_footers {
   my $html_stripper;
   if ($self->html_template) {
     $html_stripper = sub {
+      my $text = shift;
 
+      my $tree = try {
+        my $tree = $self->_tree_builder;
+
+        $tree->parse_content($$text);
+
+        $tree;
+      };
+
+      return unless $tree;
+
+      for my $child ($tree->look_down(sub {
+        my $style = lc ($_[0]->attr('style') || '');
+        $style =~ s/\s+//g;
+
+        return
+             ($_[0]->attr('id') || '') =~ $self->html_template->{start_delim_id_re}
+          || index($style, $self->html_template->{start_delim_style}) > -1
+      })) {
+        $child->delete;
+      }
+
+      $$text = $tree->as_HTML();
     };
   }
 
