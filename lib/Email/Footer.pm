@@ -10,9 +10,8 @@ use Module::Find;
 use Module::Runtime;
 
 use Try::Tiny;
-
+use Text::Quoted;
 use Carp qw(croak);
-
 use namespace::autoclean;
 
 has renderer => (
@@ -58,6 +57,8 @@ sub html_template {
   return $self->template->{html};
 }
 
+my $CRLF = qr/(?:\r\n|((?<!\r)\n))/;
+
 sub BUILD {
   my ($self) = @_;
 
@@ -73,7 +74,7 @@ sub BUILD {
 
   # Make sure all parts end with no line breaks
   if ($self->text_template) {
-    $_ =~ s/(\r?\n)*\z//g for (
+    $_ =~ s/$CRLF*\z//g for (
       $self->text_template->{start_delim},
       $self->text_template->{end_delim},
       $self->text_template->{template},
@@ -81,7 +82,7 @@ sub BUILD {
   }
 
   if ($self->html_template) {
-    $_ =~ s/(\r?\n)*\z//g for (
+    $_ =~ s/$CRLF*\z//g for (
       $self->html_template->{start_delim},
       $self->html_template->{end_delim},
       $self->html_template->{template},
@@ -164,36 +165,37 @@ sub add_footers {
   my $text_adder;
   if ($self->text_template) {
     my $footer =   $self->text_template->{start_delim}
-                 . "\r\n"
+                 . "\n"
                  . $self->renderer_object->render(
                      $self->text_template->{template}, $arg,
                    )
-                 . "\r\n"
+                 . "\n"
                  . $self->text_template->{end_delim}
-                 . "\r\n";
+                 . "\n";
 
 
-    $footer =~ s/(?<!\r)\n/\r\n/g;
+    # Make all line endings \n
+    $footer =~ s/$CRLF/\n/g;
 
     $text_adder = sub {
       my $text = shift;
 
-      $$text .= "\r\n" . $footer;
+      $$text .= "\n" . $footer;
     };
   }
 
   my $html_adder;
   if ($self->html_template) {
     my $footer =   $self->html_template->{start_delim}
-                 . "\r\n"
+                 . "\n"
                  . $self->renderer_object->render(
                      $self->html_template->{template}, $arg,
                    )
-                 . "\r\n"
+                 . "\n"
                  . $self->html_template->{end_delim}
-                 . "\r\n";
+                 . "\n";
 
-    $footer =~ s/(?<!\r)\n/\r\n/g;
+    $footer =~ s/$CRLF/\n/g;
 
     $html_adder = sub {
       my $text = shift;
@@ -220,11 +222,10 @@ sub strip_footers {
     my $end_del = $self->text_template->{end_delim};
 
     my $matcher = qr/
-      \r?\n?
-      ^ \Q$start_del\E \r?$
+      $CRLF
+      ^ \Q$start_del\E $CRLF
       .*?
-      ^ \Q$end_del\E \r?$
-      \r?\n?
+      ^ \Q$end_del\E ($CRLF|\z)
     /msx;
 
     $text_stripper = sub {
@@ -283,7 +284,7 @@ sub _strip_text_footer_helper {
 
       # Ripping out the footer tends to leave long runs of whitespace.  Trim
       # them down to something slightly less jarring. -- rjbs, 2015-06-25
-      $input->{text} =~ s/\n\n\n+/\n\n/g;
+      $input->{text} =~ s/$CRLF$CRLF$CRLF+/\n\n/g;
 
       $input->{raw} = $input->{text};
 
@@ -299,13 +300,19 @@ sub _strip_text_footer_helper {
 sub _strip_text_footers {
   my ($self, $matcher, $content_ref) = @_;
 
-  require Text::Quoted;
-#  return unless $$content_ref =~ /[^-]-{43}[^-]/m;
+  # XXX - Bail out early if we don't match our starting delim?
+  #       -- alh, 2016-10-28
   my $quoted = Text::Quoted::extract($$content_ref);
 
   my $stripped = $self->_strip_text_footer_helper($matcher, $quoted);
 
+  # combine_hunks adds a trailing newline. Don't put it there
+  # unless we expected one
+  my $nl = $$content_ref =~ /\n\z/;
+
   $$content_ref = Text::Quoted::combine_hunks( $stripped );
+
+  $$content_ref =~ s/\n\z// unless $nl;
 
   return;
 }
