@@ -320,6 +320,12 @@ EOF
 
   cmp_ok($max_length, '<', 778, "Email rewritten safely");
 
+  is(
+    $email->header_str('Content-Transfer-Encoding'),
+    'quoted-printable',
+    'encoding changed'
+  );
+
   # Double check that our footer adding/stripping still
   # works
 
