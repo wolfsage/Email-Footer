@@ -48,7 +48,7 @@ sub walk_parts {
       return unless $html_sub;
 
       # Ensure an encoding that forces a correct maximum line length
-      # incase we rewrite longs to be too long
+      # incase we rewrite lines to be too long
       my $cte = $part->header('Content-Transfer-Encoding') // '';
       $part->encoding_set('quoted-printable')
         unless $cte =~ /\A (?: quoted-printable | base64 ) \z/ix;
