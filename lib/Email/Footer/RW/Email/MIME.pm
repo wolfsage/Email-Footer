@@ -47,9 +47,20 @@ sub walk_parts {
       $part->encoding_set('quoted-printable')
         unless $cte =~ /\A (?: quoted-printable | base64 ) \z/ix;
 
-      my $body = $part->body;
+      # Probably shouldn't happen but let's be sure
+      unless ($part->content_type) {
+        $part->content_type_set('text/plain');
+      }
+
+      # No charset? Default to us-ascii (perhaps Email::MIME should do this?)
+      my $ct = Email::MIME::parse_content_type($part->content_type);
+      unless ($ct->{attributes}{charset}) {
+        $part->charset_set('us-ascii');
+      }
+
+      my $body = $part->body_str;
       $text_sub->(\$body);
-      $part->body_set($body);
+      $part->body_str_set($body);
     } elsif ($part->content_type =~ m[text/html]i) {
       return unless $html_sub;
 
@@ -59,9 +70,15 @@ sub walk_parts {
       $part->encoding_set('quoted-printable')
         unless $cte =~ /\A (?: quoted-printable | base64 ) \z/ix;
 
-      my $body = $part->body;
+      # No charset? Default to us-ascii (perhaps Email::MIME should do this?)
+      my $ct = Email::MIME::parse_content_type($part->content_type);
+      unless ($ct->{attributes}{charset}) {
+        $part->charset_set('us-ascii');
+      }
+
+      my $body = $part->body_str;
       $html_sub->(\$body);
-      $part->body_set($body);
+      $part->body_str_set($body);
     }
   });
 

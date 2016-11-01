@@ -9,6 +9,8 @@ use Test::Differences;
 
 use List::Util qw(max);
 
+use utf8;
+
 subtest "basic text footer add/removal" => sub {
   my $tfoot = <<'EOF';
 { $group_name }
@@ -31,7 +33,14 @@ EOF
       To   => 'your@address',
     ],
     parts => [
-      "This is part one. It is a lonely part.\n",
+      Email::MIME->create(
+        attributes => {
+          content_type => "text/plain",
+          encoding     => "quoted-printable", # This will keep our original line lengths
+          charset      => "UTF-8",
+        },
+        body_str => "This is part one. It is a lonely part…\n",
+      ),
     ],
   );
 
@@ -42,13 +51,13 @@ EOF
     group_url  => "https://example.net/groups/bfs",
   });
 
-  my $body = $email->body;
+  my $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
 
   eq_or_diff(
     $body,
     <<'EOF',
-This is part one. It is a lonely part.
+This is part one. It is a lonely part…
 
 ------------------------------------------
 Better Faster Stronger
@@ -102,7 +111,7 @@ EOF
     group_url  => "https://example.net/groups/bfs",
   });
 
-  my $body = $email->body;
+  my $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
 
   eq_or_diff(
@@ -124,17 +133,17 @@ EOF
     return if $part->subparts; # multipart
 
     if ( $part->content_type =~ m[text/plain]i ) {
-      my $body = $part->body;
+      my $body = $part->body_str;
 
       # Quote the message
       $body =~ s/^/> /mg;
 
-      $part->body_set( "Top posted response OH NO!\n\n$body" );
+      $part->body_str_set( "Top posted response OH NO!\n\n$body" );
     }
   });
 
   # Check our assumptions
-  $body = $email->body;
+  $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
 
   eq_or_diff(
@@ -154,7 +163,7 @@ EOF
 
   $footer->strip_footers($email);
 
-  $body = $email->body;
+  $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
 
   eq_or_diff(
@@ -218,7 +227,7 @@ EOF
 
   cmp_ok($max_length, '<', 778, "Email rewritten safely");
 
-  my $body = $email->body;
+  my $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
 
   eq_or_diff(
