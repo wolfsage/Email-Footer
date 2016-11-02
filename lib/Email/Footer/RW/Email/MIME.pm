@@ -1,4 +1,5 @@
 package Email::Footer::RW::Email::MIME;
+
 use Moose;
 
 use Email::MIME;

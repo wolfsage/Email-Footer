@@ -1,4 +1,5 @@
 package Email::Footer::Renderer::Text::Template;
+
 use Moose;
 
 use Text::Template qw(fill_in_string);

@@ -1,4 +1,5 @@
 package Email::Footer::RW;
+
 use Moose::Role;
 
 with 'Email::Footer::Component';
