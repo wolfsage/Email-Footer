@@ -54,6 +54,8 @@ sub walk_parts {
       }
 
       # No charset? Default to us-ascii (perhaps Email::MIME should do this?)
+      # This is for input only. We will always write out UTF-8 as our template
+      # may contain it
       my $ct = Email::MIME::parse_content_type($part->content_type);
       unless ($ct->{attributes}{charset}) {
         $part->charset_set('us-ascii');
@@ -61,6 +63,10 @@ sub walk_parts {
 
       my $body = $part->body_str;
       $text_sub->(\$body);
+
+      # change to UTF-8
+      $part->charset_set('UTF-8');
+
       $part->body_str_set($body);
     } elsif ($part->content_type =~ m[text/html]i) {
       return unless $html_sub;
@@ -72,6 +78,8 @@ sub walk_parts {
         unless $cte =~ /\A (?: quoted-printable | base64 ) \z/ix;
 
       # No charset? Default to us-ascii (perhaps Email::MIME should do this?)
+      # This is for input only. We will always write out UTF-8 as our template
+      # may contain it
       my $ct = Email::MIME::parse_content_type($part->content_type);
       unless ($ct->{attributes}{charset}) {
         $part->charset_set('us-ascii');
@@ -79,6 +87,10 @@ sub walk_parts {
 
       my $body = $part->body_str;
       $html_sub->(\$body);
+
+      # change to UTF-8
+      $part->charset_set('UTF-8');
+
       $part->body_str_set($body);
     }
   });
