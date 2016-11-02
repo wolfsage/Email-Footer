@@ -1,4 +1,5 @@
 package Email::Footer::Component;
+
 use Moose::Role;
 
 has footer => (

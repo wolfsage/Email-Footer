@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 package Email::Footer;
+
 # ABSTRACT: Add/strip footers from email messages
 use Moose;
 
