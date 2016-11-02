@@ -13,9 +13,9 @@ use utf8;
 
 subtest "basic text footer add/removal" => sub {
   my $tfoot = <<'EOF';
-{ $group_name }<br />
-{ $group_url }<br />
-Powered by Perl<br />
+{ $group_name } …<br />
+{ $group_url } …<br />
+Powered by Perl …<br />
 EOF
 
   my $footer = Email::Footer->new({
@@ -77,9 +77,9 @@ EOF
 <body>
   <a href="https://example.net">Wow what an Email</a>
 <div id="heavy-footer" style="width: auto; margin: 0">
-Better Faster Stronger<br />
-https://example.net/groups/bfs<br />
-Powered by Perl<br />
+Better Faster Stronger …<br />
+https://example.net/groups/bfs …<br />
+Powered by Perl …<br />
 </div>
 </body>
 </html>
@@ -118,9 +118,9 @@ EOF
 
 subtest "quoted html footer removal" => sub {
   my $tfoot = <<'EOF';
-{ $group_name }<br />
-{ $group_url }<br />
-Powered by Perl<br />
+{ $group_name } …<br />
+{ $group_url } …<br />
+Powered by Perl …<br />
 EOF
 
   my $footer = Email::Footer->new({
@@ -147,9 +147,9 @@ EOF
         },
         body_str => <<'EOF',
 <div dir="ltr">Oh <b>boy</b><br><div><div class="gmail_extra"><br><div class="gmail_quote">On Fri, Oct 28, 2016 at 1:02 PM,  <span dir="ltr">&lt;<a href="mailto:someone@example.net" target="_blank">someone@example.net</a>&gt;</span> wrote:<br><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex"><div><a href="https://example.net" target="_blank">Wow what an Email</a><div id="m_5048774373898288484heavy-footer" style="width:auto;margin:0">
-Better Faster Stronger<br>
-<a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs</a><br>
-Powered by Perl<br>
+Better Faster Stronger …<br>
+<a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs …</a><br>
+Powered by Perl …<br>
 </div>
 </div>
 </blockquote></div><br></div></div></div>
@@ -160,12 +160,12 @@ EOF
 
   # Verify initial state
   for my $str (
-    "Better Faster Stronger",
-    "https://example.net/groups/bfs",
-    "Powered by Perl",
+    "Better Faster Stronger …",
+    "https://example.net/groups/bfs …",
+    "Powered by Perl …",
   ) {
     like(
-      $email->as_string,
+      $email->body_str,
       qr/\Q$str\E/,
       "footer exits"
     );
@@ -174,14 +174,14 @@ EOF
   # Now strip the footers
   $footer->strip_footers($email);
 
-  # Verify initial state
+  # Verify these are now gone
   for my $str (
-    "Better Faster Stronger",
-    "https://example.net/groups/bfs",
-    "Powered by Perl",
+    "Better Faster Stronger …",
+    "https://example.net/groups/bfs …",
+    "Powered by Perl …",
   ) {
     unlike(
-      $email->as_string,
+      $email->body_str,
       qr/\Q$str\E/,
       "footer cleared from quoted response"
     );
@@ -194,9 +194,9 @@ subtest "Make sure match works based on style" => sub {
   # id to make sure style matching works
 
   my $tfoot = <<'EOF';
-{ $group_name }<br />
-{ $group_url }<br />
-Powered by Perl<br />
+{ $group_name } …<br />
+{ $group_url } …<br />
+Powered by Perl …<br />
 EOF
 
   my $footer = Email::Footer->new({
@@ -223,9 +223,9 @@ EOF
         },
         body_str => <<'EOF',
 <div dir="ltr">Oh <b>boy</b><br><div><div class="gmail_extra"><br><div class="gmail_quote">On Fri, Oct 28, 2016 at 1:02 PM,  <span dir="ltr">&lt;<a href="mailto:someone@example.net" target="_blank">someone@example.net</a>&gt;</span> wrote:<br><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex"><div><a href="https://example.net" target="_blank">Wow what an Email</a><div id="m_5048774373898288484broken-footer" style="width:auto;margin:0">
-Better Faster Stronger<br>
-<a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs</a><br>
-Powered by Perl<br>
+Better Faster Stronger …<br>
+<a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs …</a><br>
+Powered by Perl …<br>
 </div>
 </div>
 </blockquote></div><br></div></div></div>
@@ -236,12 +236,12 @@ EOF
 
   # Verify initial state
   for my $str (
-    "Better Faster Stronger",
-    "https://example.net/groups/bfs",
-    "Powered by Perl",
+    "Better Faster Stronger …",
+    "https://example.net/groups/bfs …",
+    "Powered by Perl …",
   ) {
     like(
-      $email->as_string,
+      $email->body_str,
       qr/\Q$str\E/,
       "footer exits"
     );
@@ -250,14 +250,14 @@ EOF
   # Now strip the footers
   $footer->strip_footers($email);
 
-  # Verify initial state
+  # Verify tese are now gone
   for my $str (
-    "Better Faster Stronger",
-    "https://example.net/groups/bfs",
-    "Powered by Perl",
+    "Better Faster Stronger …",
+    "https://example.net/groups/bfs …",
+    "Powered by Perl …",
   ) {
     unlike(
-      $email->as_string,
+      $email->body_str,
       qr/\Q$str\E/,
       "footer cleared from quoted response"
     );
@@ -268,9 +268,9 @@ subtest "ensure lines over 778 bytes aren't possible" => sub {
   my $long_line = "x" x 1024;
 
   my $tfoot = <<"EOF";
-$long_line { \$group_name }<br />
-$long_line { \$group_url }<br />
-$long_line Powered by Perl<br />
+$long_line { \$group_name } …<br />
+$long_line { \$group_url } …<br />
+$long_line Powered by Perl …<br />
 EOF
 
   my $footer = Email::Footer->new({
@@ -349,9 +349,9 @@ EOF
 <body>
   <a href="https://example.net">Wow what an Email</a>
 <div id="heavy-footer" style="width: auto; margin: 0">
-$long_line Better Faster Stronger<br />
-$long_line https://example.net/groups/bfs<br />
-$long_line Powered by Perl<br />
+$long_line Better Faster Stronger …<br />
+$long_line https://example.net/groups/bfs …<br />
+$long_line Powered by Perl …<br />
 </div>
 </body>
 </html>
@@ -390,9 +390,9 @@ EOF
 
 subtest "no charset" => sub {
   my $tfoot = <<'EOF';
-{ $group_name }<br />
-{ $group_url }<br />
-Powered by Perl<br />
+{ $group_name } …<br />
+{ $group_url } …<br />
+Powered by Perl …<br />
 EOF
 
   my $footer = Email::Footer->new({
@@ -453,9 +453,9 @@ EOF
 <body>
   <a href="https://example.net">Wow what an Email</a>
 <div id="heavy-footer" style="width: auto; margin: 0">
-Better Faster Stronger<br />
-https://example.net/groups/bfs<br />
-Powered by Perl<br />
+Better Faster Stronger …<br />
+https://example.net/groups/bfs …<br />
+Powered by Perl …<br />
 </div>
 </body>
 </html>
