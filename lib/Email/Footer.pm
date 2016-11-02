@@ -255,7 +255,7 @@ sub add_footers {
     };
   }
 
-  $rw->walk_parts($email, $text_adder, $html_adder);
+  $rw->walk_parts($email, 'adding', $text_adder, $html_adder);
 
   return;
 }
@@ -318,7 +318,7 @@ sub strip_footers {
     };
   }
 
-  $rw->walk_parts($email, $text_stripper, $html_stripper);
+  $rw->walk_parts($email, 'stripping', $text_stripper, $html_stripper);
 
   return;
 }
@@ -344,7 +344,7 @@ sub _strip_text_footer_helper {
         $merge->{raw}  .= "\n" . $input->[$i]{raw};
       }
 
-      push @base, $merge;
+      push @base, $merge if $merge->{text} && $merge->{raw};
     }
 
     return [ map {; $self->_strip_text_footer_helper($matcher, $_) } @base ];

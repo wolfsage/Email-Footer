@@ -7,6 +7,7 @@ use Email::Footer;
 use Test::More;
 use Test::Differences;
 
+use Path::Tiny;
 use List::Util qw(max);
 
 use utf8;
@@ -466,6 +467,109 @@ EOF
     $got,
     $expect,
     "Footer looks right"
+  );
+};
+
+subtest "pgp" => sub {
+  my $message = path("t/corpus/html-mime-pgp.msg")->slurp;
+  ok($message, 'got mime-pgp message');
+
+  my $tfoot = <<'EOF';
+{ $group_name }<br />
+{ $group_url }<br />
+Powered by Perl<br />
+EOF
+
+  my $footer = Email::Footer->new({
+    template => {
+      html => {
+        start_delim => '<div id="heavy-footer" style="width: auto; margin: 0">',
+        end_delim   => '</div>',
+        template    => $tfoot,
+      },
+    },
+  });
+
+  my $email = Email::MIME->new($message);
+
+  my @parts;
+  $email->walk_parts(sub { push @parts, shift; });
+
+  is(@parts, 3, 'got two parts');
+  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
+  like($parts[1]->content_type, qr/text\/html/, 'second part is text');
+  like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
+
+  my $orig_signed_body = $parts[1]->body_str;
+  like($orig_signed_body, qr/been pretty lazy/, 'got body text');
+
+  $footer->add_footers($email, {
+    group_name => "Better Faster Stronger",
+    group_url  => "https://example.net/groups/bfs",
+  });
+
+  @parts = ();
+  $email->walk_parts(sub { push @parts, shift; });
+
+  is(@parts, 4, 'got four parts');
+  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
+  like($parts[1]->content_type, qr/text\/html/, 'second part is text');
+  like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
+  like($parts[3]->content_type, qr/text\/html/, 'fourth part is html');
+
+  eq_or_diff(
+    $parts[1]->body_str,
+    $orig_signed_body,
+    'signed body was not modified'
+  );
+
+  my $expect = <<EOF;
+<html><head></head><body><div id="heavy-footer" style="width: auto; margin: 0">
+Better Faster Stronger<br />
+https://example.net/groups/bfs<br />
+Powered by Perl<br />
+</div>
+</body></html>
+EOF
+
+  # Kill final newline
+  $expect =~ s/\r?\n\z//;
+
+  my $foot = $parts[3]->body_str;
+  $foot =~ s/\r\n/\n/g;
+
+  eq_or_diff(
+    $foot,
+    $expect,
+    "Footer part looks right"
+  );
+
+  # Now strip the footer (which will do nothing since the message
+  # is signed)
+  $footer->strip_footers($email);
+
+  @parts = ();
+  $email->walk_parts(sub { push @parts, shift; });
+
+  is(@parts, 4, 'got four parts');
+  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
+  like($parts[1]->content_type, qr/text\/html/, 'second part is html');
+  like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
+  like($parts[3]->content_type, qr/text\/html/, 'fourth part is html');
+
+  eq_or_diff(
+    $parts[1]->body_str,
+    $orig_signed_body,
+    'signed body was not modified'
+  );
+
+  $foot = $parts[3]->body_str;
+  $foot =~ s/\r\n/\n/g;
+
+  eq_or_diff(
+    $foot,
+    $expect,
+    "Footer part looks right"
   );
 };
 
