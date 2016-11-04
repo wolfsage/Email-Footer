@@ -52,6 +52,7 @@ sub _tree_builder {
   my $tree = HTML::TreeBuilder->new;
 
   $tree->no_space_compacting(1);
+  $tree->implicit_tags(0);
 
   return $tree;
 }
@@ -245,12 +246,19 @@ sub add_footers {
         $tree;
       };
 
-      if ($tree && (my $body = $tree->look_down('_tag' => 'body'))) {
-        $body->push_content(
-          HTML::Element->new('~literal', text => $footer)
-        );
-
+      if ($tree) {
+        if (my $body = $tree->look_down('_tag' => 'body')) {
+          $body->push_content(
+            HTML::Element->new('~literal', text => $footer)
+          );
+        } else {
+          $tree->push_content(
+            HTML::Element->new('~literal', text => $footer)
+          )
+        }
         $$text = $tree->as_HTML();
+      } elsif (!$tree) {
+        $$text .= $footer;
       }
     };
   }

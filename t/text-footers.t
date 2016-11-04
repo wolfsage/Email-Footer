@@ -54,7 +54,6 @@ EOF
 
   my $body = $email->body_str;
   $body =~ s/\r\n/\n/g;
-
   eq_or_diff(
     $body,
     <<'EOF',
@@ -107,6 +106,9 @@ EOF
   );
 
   my $orig = $email->as_string;
+  $email->body;
+  $email->body_str;
+
 
   $footer->add_footers($email, {
     group_name => "Better Faster Stronger",
@@ -282,7 +284,7 @@ EOF
   my @parts;
   $email->walk_parts(sub { push @parts, shift; });
 
-  is(@parts, 3, 'got two parts');
+  is(@parts, 3, 'got three parts');
   like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
   like($parts[1]->content_type, qr/text\/plain/, 'second part is text');
   like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
@@ -298,14 +300,15 @@ EOF
   @parts = ();
   $email->walk_parts(sub { push @parts, shift; });
 
-  is(@parts, 4, 'got four parts');
-  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
-  like($parts[1]->content_type, qr/text\/plain/, 'second part is text');
-  like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
-  like($parts[3]->content_type, qr/text\/plain/, 'fourth part is text');
+  is(@parts, 5, 'got 5 parts');
+  like($parts[0]->content_type, qr/multipart\/mixed/, 'first part is mixed');
+  like($parts[1]->content_type, qr/multipart\/signed/, 'first part is signed');
+  like($parts[2]->content_type, qr/text\/plain/, 'second part is text');
+  like($parts[3]->content_type, qr/application\/pgp/, 'third part is pgp');
+  like($parts[4]->content_type, qr/text\/plain/, 'fourth part is text');
 
   eq_or_diff(
-    $parts[1]->body_str,
+    $parts[2]->body_str,
     $orig_signed_body,
     'signed body was not modified'
   );
@@ -318,7 +321,7 @@ https://example.net/groups/bfs
 Powered by Perl
 EOF
 
-  my $foot = $parts[3]->body_str;
+  my $foot = $parts[4]->body_str;
   $foot =~ s/\r\n/\n/g;
 
   eq_or_diff(
@@ -327,32 +330,32 @@ EOF
     "Footer part looks right"
   );
 
-  # Now strip the footer (which will do nothing since the message
-  # is signed)
+  # Now attempt to strip the footer from a message containing it
+  $message = path("t/corpus/text-mime-pgp-with-footer.msg")->slurp;
+  ok($message, 'got mime-pgp message');
+
+  $email = Email::MIME->new($message);
+
+  @parts = ();
+  $email->walk_parts(sub { push @parts, shift; });
+
+  $orig_signed_body = $parts[1]->body_str;
+
+  # This should do nothing
   $footer->strip_footers($email);
 
   @parts = ();
   $email->walk_parts(sub { push @parts, shift; });
 
-  is(@parts, 4, 'got four parts');
-  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
+  is(@parts, 3, 'got 3 parts');
+  like($parts[0]->content_type, qr/multipart\/signed/, 'firs part is signed');
   like($parts[1]->content_type, qr/text\/plain/, 'second part is text');
   like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
-  like($parts[3]->content_type, qr/text\/plain/, 'fourth part is text');
 
   eq_or_diff(
     $parts[1]->body_str,
     $orig_signed_body,
-    'signed body was not modified'
-  );
-
-  $foot = $parts[3]->body_str;
-  $foot =~ s/\r\n/\n/g;
-
-  eq_or_diff(
-    $foot,
-    $expect,
-    "Footer part looks right"
+    'signed body was not modified by strip_footers'
   );
 };
 
