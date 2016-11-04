@@ -525,12 +525,12 @@ EOF
   );
 
   my $expect = <<EOF;
-<html><head></head><body><div id="heavy-footer" style="width: auto; margin: 0">
+<html><div id="heavy-footer" style="width: auto; margin: 0">
 Better Faster Stronger<br />
 https://example.net/groups/bfs<br />
 Powered by Perl<br />
 </div>
-</body></html>
+</html>
 EOF
 
   # Kill final newline
