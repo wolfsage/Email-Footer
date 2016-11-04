@@ -52,6 +52,7 @@ sub _tree_builder {
   my $tree = HTML::TreeBuilder->new;
 
   $tree->no_space_compacting(1);
+  $tree->implicit_tags(1);
 
   return $tree;
 }

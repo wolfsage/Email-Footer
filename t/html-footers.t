@@ -147,7 +147,7 @@ EOF
           charset      => "UTF-8",
         },
         body_str => <<'EOF',
-<div dir="ltr">Oh <b>boy</b><br><div><div class="gmail_extra"><br><div class="gmail_quote">On Fri, Oct 28, 2016 at 1:02 PM,  <span dir="ltr">&lt;<a href="mailto:someone@example.net" target="_blank">someone@example.net</a>&gt;</span> wrote:<br><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex"><div><a href="https://example.net" target="_blank">Wow what an Email</a><div id="m_5048774373898288484heavy-footer" style="width:auto;margin:0">
+<div dir="ltr">Oh <b>boy</b><meta><br><div><div class="gmail_extra"><br><div class="gmail_quote">On Fri, Oct 28, 2016 at 1:02 PM,  <span dir="ltr">&lt;<a href="mailto:someone@example.net" target="_blank">someone@example.net</a>&gt;</span> wrote:<br><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex"><div><a href="https://example.net" target="_blank">Wow what an Email</a><div id="m_5048774373898288484heavy-footer" style="width:auto;margin:0">
 Better Faster Stronger …<br>
 <a href="https://example.net/groups/bfs" target="_blank">https://example.net/groups/bfs …</a><br>
 Powered by Perl …<br>
@@ -511,14 +511,15 @@ EOF
   @parts = ();
   $email->walk_parts(sub { push @parts, shift; });
 
-  is(@parts, 4, 'got four parts');
-  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
-  like($parts[1]->content_type, qr/text\/html/, 'second part is text');
-  like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
-  like($parts[3]->content_type, qr/text\/html/, 'fourth part is html');
+  is(@parts, 5, 'got 5 parts');
+  like($parts[0]->content_type, qr/multipart\/mixed/, 'first part is mixed');
+  like($parts[1]->content_type, qr/multipart\/signed/, 'second part is signed');
+  like($parts[2]->content_type, qr/text\/html/, 'third part is html');
+  like($parts[3]->content_type, qr/application\/pgp/, 'fourth part is pgp');
+  like($parts[4]->content_type, qr/text\/html/, 'fifth part is html');
 
   eq_or_diff(
-    $parts[1]->body_str,
+    $parts[2]->body_str,
     $orig_signed_body,
     'signed body was not modified'
   );
@@ -535,7 +536,7 @@ EOF
   # Kill final newline
   $expect =~ s/\r?\n\z//;
 
-  my $foot = $parts[3]->body_str;
+  my $foot = $parts[4]->body_str;
   $foot =~ s/\r\n/\n/g;
 
   eq_or_diff(
@@ -544,32 +545,32 @@ EOF
     "Footer part looks right"
   );
 
-  # Now strip the footer (which will do nothing since the message
-  # is signed)
+  # Now attempt to strip the footer from a message containing it
+  $message = path("t/corpus/html-mime-pgp-with-footer.msg")->slurp;
+  ok($message, 'got mime-pgp message');
+
+  $email = Email::MIME->new($message);
+
+  @parts = ();
+  $email->walk_parts(sub { push @parts, shift; });
+
+  $orig_signed_body = $parts[1]->body_str;
+
+  # This should do nothing
   $footer->strip_footers($email);
 
   @parts = ();
   $email->walk_parts(sub { push @parts, shift; });
 
-  is(@parts, 4, 'got four parts');
-  like($parts[0]->content_type, qr/multipart\/signed/, 'first part is signed');
+  is(@parts, 3, 'got 3 parts');
+  like($parts[0]->content_type, qr/multipart\/signed/, 'firs part is signed');
   like($parts[1]->content_type, qr/text\/html/, 'second part is html');
   like($parts[2]->content_type, qr/application\/pgp/, 'third part is pgp');
-  like($parts[3]->content_type, qr/text\/html/, 'fourth part is html');
 
   eq_or_diff(
     $parts[1]->body_str,
     $orig_signed_body,
-    'signed body was not modified'
-  );
-
-  $foot = $parts[3]->body_str;
-  $foot =~ s/\r\n/\n/g;
-
-  eq_or_diff(
-    $foot,
-    $expect,
-    "Footer part looks right"
+    'signed body was not modified by strip_footers'
   );
 };
 

@@ -3,6 +3,8 @@ package Email::Footer::RW::Email::MIME;
 use Moose;
 
 use Email::MIME;
+use MIME::Entity;
+use Email::Abstract;
 
 with 'Email::Footer::RW';
 
@@ -20,12 +22,14 @@ sub _get_mime_object {
   return ref $email eq 'Email::MIME' ? $email : Email::MIME->new($$email);
 }
 
-sub _maybe_update_bare_email {
+sub _update_input {
   my ($self, $input, $email) = @_;
 
-  return unless ref $input eq 'SCALAR';
-
-  $$input = $email->as_string;
+  if (ref $input eq 'SCALAR') {
+    $$input = $email->as_string;
+  } else {
+    %$input = %$email;
+  }
 
   return;
 }
@@ -35,68 +39,69 @@ sub walk_parts {
 
   my $email = $self->_get_mime_object($input);
 
-  # Find the last text/html parts in the message
-  my $last_text_part;
-  my $last_html_part;
-
   # Don't strip footers from this type since we found a signed part
   my $dont_strip_text;
   my $dont_strip_html;
 
-  $email->walk_parts(sub {
-    my ($part) = @_;
+  if ($email->content_type =~ m[multipart/signed]i) {
+    my ($first) = $email->subparts;
 
-    if ($part->content_type && $part->content_type =~ m[multipart/signed]i) {
-      # Signed message? Add a part to the end that will contain the
-      # footer so we don't break signatures
-      my ($first) = $part->subparts;
+    # Allow signed text or html parts
+    my $ct = $first->content_type // 'text/plain';
 
-      # Allow signed text or html parts
-      my $ct = $first->content_type // 'text/plain';
+    if ($what eq 'adding') {
+      # Signed message? Upgrade message to multipart/mixed, add a part
+      # at the end to put the footer on
+      my $converter = Email::Abstract->new($email);
+      my $ent = $converter->cast('MIME::Entity');
+      $ent->make_multipart('mixed', Force => 1);
 
-      if ($what eq 'adding') {
-        my $new_part = Email::MIME->create(
-          attributes => {
-            content_type => $ct,
-            charset      => "UTF-8",
-            encoding     => "quoted-printable",
-          },
-          body_str => "",
-        );
+      my $foot = MIME::Entity->build(
+        Type => $ct,
+        Data => [ "" ],
+      );
+      $ent->add_part($foot);
 
-        $email->parts_add([$new_part]);
-      } else {
-        # We're in strip mode, don't bother if we have signed parts
-        if ($ct =~ m[text/plain]i) {
-          $dont_strip_text = 1;
-        } elsif ($ct =~ m[text/html]i) {
-          $dont_strip_html = 1;
-        }
+      $converter = Email::Abstract->new($ent);
+      $email = $converter->cast('Email::MIME');
+    } else {
+      # Stripping? We don't want to modify the message
+      if ($ct =~ m[text/plain]i) {
+        $dont_strip_text = 1;
+      } elsif ($ct =~ m[text/html]i) {
+        $dont_strip_html = 1;
       }
     }
+  }
 
-    return if $part->subparts;
+  # Collect text/html parts
+  my @todo = $email;
+  my %parts;
+  for my $part (@todo) {
+    # Don't even think of subparts of signed part
+    if ($part->content_type =~ m[multipart/signed]i) {
+      next;
+    }
+
+    if ($part->subparts) {
+      push @todo, $part->subparts;
+
+      next;
+    }
 
     if ($part->content_type =~ m[text/plain]i) {
-      return unless $text_sub;
+      next if $dont_strip_text || ! $text_sub;
 
-      $last_text_part = $part;
+      push @{ $parts{text} }, $part;
     } elsif ($part->content_type =~ m[text/html]i) {
-      return unless $html_sub;
+      next if $dont_strip_html || ! $html_sub;
 
-      $last_html_part = $part;
+      push @{ $parts{html} }, $part;
     }
-  });
-
-  # Are we in strip mode and we ended up with a signed part
-  # matching this content_type?
-  if ($dont_strip_text) {
-    $last_text_part = undef;
   }
 
-  if ($dont_strip_html) {
-    $last_html_part = undef;
-  }
+  my $last_text_part = @{ $parts{text} }[-1];
+  my $last_html_part = @{ $parts{html} }[-1];
 
   if ($last_text_part) {
     # Ensure an encoding that forces a correct maximum line length
@@ -146,7 +151,7 @@ sub walk_parts {
     $last_html_part->body_str_set($body);
   }
 
-  $self->_maybe_update_bare_email($input, $email);
+  $self->_update_input($input, $email);
 
   return;
 }
