@@ -12,11 +12,12 @@ use List::Util qw(any);
 use Email::MIME;
 use Email::Abstract;
 use Test::More;
+use Test::Deep qw(cmp_deeply);
+use Test::Differences;
 use Try::Tiny;
 
 use Email::Footer;
 use Email::Footer::Test::Dir;
-use Test::Differences;
 
 has dir => (
   is => 'ro',
@@ -153,13 +154,69 @@ sub run_one_test {
     $footer->strip_footers($start);
     $footer->add_footers($start, $test->template_arg->{values});
 
-    my $got = $start->as_string; 
-    $got =~ s/\r\n/\n/g;
+    my $got = Email::Abstract->new($start)->cast('Email::MIME');
+    my $expect = Email::Abstract->new($end)->cast('Email::MIME');
 
-    my $expect = $end->as_string;
-    $expect =~ s/\r\n/\n/g;
+    my @gparts;
+    $got->walk_parts(sub { push @gparts, shift });
 
-    eq_or_diff($got, $expect, "strip/add_footers worked");
+    my @eparts;
+    $expect->walk_parts(sub { push @eparts, shift });
+
+    is(
+      0+@gparts,
+      0+@eparts,
+      "Got the correct number of parts"
+    );
+
+    my $fail = 0;
+
+    for my $i (0..$#gparts) {
+      my $gpart = $gparts[$i];
+      my $epart = $eparts[$i];
+
+      my ($gct) = $gpart->content_type =~ /^(.*?)(;|\s|$)/;
+      my ($ect) = $epart->content_type =~ /^(.*?)(;|\s|$)/;
+
+      is(
+        $gct,
+        $ect,
+        "Content type for part $i matches ($gct)"
+      ) or $fail++;
+
+      is(
+        0 + $gpart->subparts,
+        0 + $epart->subparts,
+        "Part $i has right number of subarts"
+      ) or $fail++;
+
+      unless ($gpart->subparts) {
+        my $gpart_body = do {
+          $gpart->content_type =~ /text\/(plain|html)/i
+            ? $gpart->body_str
+            : $gpart->body_raw
+        };
+        my $epart_body = do {
+          $epart->content_type =~ /text\/(plain|html)/i
+            ? $epart->body_str
+            : $epart->body_raw
+        };
+        $gpart_body =~ s/\r\n/\n/g;
+        $epart_body =~ s/\r\n/\n/g;
+
+        unified_diff;
+        eq_or_diff_text(
+          $gpart_body,
+          $epart_body,
+          "Body for part $i matches"
+        ) or $fail++;
+      }
+    }
+
+    if ($fail) {
+      diag "GOT:\n" . $got->as_string;
+      diag "EXPECT:\n" . $expect->as_string;
+    }
   };
 }
 

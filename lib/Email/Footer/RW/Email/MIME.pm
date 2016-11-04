@@ -58,6 +58,7 @@ sub walk_parts {
 
       my $foot = MIME::Entity->build(
         Type => $ct,
+        Charset => 'UTF-8',
         Data => [ "" ],
       );
       $ent->add_part($foot);
@@ -150,6 +151,9 @@ sub walk_parts {
 
     $last_html_part->body_str_set($body);
   }
+
+  # Blow away cache or ->as_string will *LIE*
+  $email->parts_set([ $email->subparts ]) if $email->subparts;
 
   $self->_update_input($input, $email);
 

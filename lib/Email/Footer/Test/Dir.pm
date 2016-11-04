@@ -80,13 +80,13 @@ has 'shortdesc_text' => (
 sub _build_input_message {
   my $self = shift;
 
-  return Email::Abstract->new(Email::MIME->new($self->input_msg->slurp));
+  return Email::Abstract->new(Email::MIME->new($self->input_msg->slurp_utf8));
 }
 
 sub _build_output_message {
   my $self = shift;
 
-  return Email::Abstract->new(Email::MIME->new($self->output_msg->slurp));
+  return Email::Abstract->new(Email::MIME->new($self->output_msg->slurp_utf8));
 }
 
 sub _build_template_arg {
@@ -109,7 +109,7 @@ sub _build_template_arg {
 sub _build_shortdesc_text {
   my $self = shift;
 
-  return $self->shortdesc_txt->slurp;
+  return $self->shortdesc_txt->slurp_utf8;
 }
 
 around BUILDARGS => sub {
