@@ -17,13 +17,15 @@ use HTML::TreeBuilder;
 
 use namespace::autoclean;
 
+my @RW = findallmod 'Email::Footer::RW';
+
 has renderer => (
   is   => 'ro',
   isa  => 'Str',
   default => 'Text::Template',
 );
 
-has renderer_object => (
+has renderer_component => (
   is       => 'ro',
   does     => 'Email::Footer::Renderer',
   init_arg => undef,
@@ -31,16 +33,35 @@ has renderer_object => (
   default  => sub { $_[0]->_build_component("Renderer", $_[0]->renderer) },
 );
 
-has _rws => (
+has rws => (
+  is       => 'ro',
+  isa      => 'ArrayRef',
+  init_arg => undef,
+  default  => sub { [ @RW ] },
+);
+
+has _rw_components => (
   is       => 'ro',
   traits   => [ 'Array' ],
   handles  => {
-    add_rw => 'push',
-    rws    => 'elements',
+    rw_components    => 'elements',
   },
+  lazy => 1,
   init_arg => undef,
-  default  => sub { [] },
+  builder => '_build_rw_components',
 );
+
+sub _build_rw_components {
+  my $self = shift;
+
+  my @rws;
+
+  return [
+    map {;
+      $self->_build_component("RW", $_);
+    } @{ $self->rws },
+  ]
+}
 
 has template => (
   is   => 'ro',
@@ -127,13 +148,9 @@ sub BUILD {
     $self->html_template->{start_delim_style} = $style;
   }
 
-  for my $rw (findallmod 'Email::Footer::RW') {
-    my $c = $self->_build_component(undef, $rw);
-
-    $self->add_rw($c);
-  }
-
-  $self->renderer_object;
+  # So we've built all components 
+  $self->renderer_component;
+  $self->rw_components;
 }
 
 sub _validate_template {
@@ -166,7 +183,7 @@ sub _build_component {
 
   $arg //= {};
 
-  if ($prefix) {
+  if ($prefix && $component !~ /\Q::${prefix}::\E/) {
     $component = $prefix . "::" . $component;
   }
 
@@ -186,7 +203,7 @@ sub _build_component {
 sub _find_rw_for {
   my ($self, $email) = @_;
 
-  for my $rw ($self->rws) {
+  for my $rw ($self->rw_components) {
     if ($rw->can_handle($email)) {
       return $rw;
     }
@@ -204,7 +221,7 @@ sub add_footers {
   if ($self->text_template) {
     my $footer =   $self->text_template->{start_delim}
                  . "\n"
-                 . $self->renderer_object->render(
+                 . $self->renderer_component->render(
                      $self->text_template->{template}, $arg,
                    )
                  . "\n"
@@ -226,7 +243,7 @@ sub add_footers {
   if ($self->html_template) {
     my $footer =   $self->html_template->{start_delim}
                  . "\n"
-                 . $self->renderer_object->render(
+                 . $self->renderer_component->render(
                      $self->html_template->{template}, $arg,
                    )
                  . "\n"
