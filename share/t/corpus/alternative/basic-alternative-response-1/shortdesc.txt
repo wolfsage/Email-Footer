@@ -1,0 +1,1 @@
+We can add add/strip footers to/from mixed/alternative
