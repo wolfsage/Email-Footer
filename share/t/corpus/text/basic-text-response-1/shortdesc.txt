@@ -1,0 +1,1 @@
+We can strip/add footers from/to basic text messages
