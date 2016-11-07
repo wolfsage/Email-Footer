@@ -1,0 +1,14 @@
+{
+   "template" : {
+      "html" : {
+         "start_delim" : "<div id=\"heavy-footer\" style=\"width: auto; margin: 0\">",
+         "end_delim" : "</div>",
+         "template" : "{ $group_name } …<br />\n{ $group_url } …<br />\nPowered by Perl …<br />\n"
+      }
+   },
+   "values" : {
+      "group_name" : "Better Faster Stronger",
+      "group_url" : "https://example.net/groups/bfs"
+   }
+}
+

@@ -1,0 +1,1 @@
+We can strip and add footers to/from basic html messages
