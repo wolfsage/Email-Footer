@@ -91,6 +91,11 @@ sub walk_parts {
     }
 
     if ($part->content_type =~ m[text/plain]i) {
+      my $disp = $part->header('Content-Disposition');
+
+      # Do *not* mess with non-inline attachments
+      next if $disp && $disp =~ /attachment/i;
+
       next if $dont_strip_text || ! $text_sub;
 
       push @{ $parts{text} }, $part;
