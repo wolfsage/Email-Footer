@@ -152,8 +152,21 @@ sub walk_parts {
     $last_html_part->body_str_set($body);
   }
 
-  # Blow away cache or ->as_string will *LIE*
-  $email->parts_set([ $email->subparts ]) if $email->subparts;
+  # Blow away cache or ->as_string will *LIE*. We must refresh multipart
+  # parts depth first so wrapping parts get updated information
+  my @to_set;
+
+  $email->walk_parts(sub {
+    my ($part) = @_;
+
+    if ($part->subparts) {
+      push @to_set, $part;
+    }
+  });
+
+  for my $part (reverse @to_set) {
+    $part->parts_set([ $part->subparts ]);
+  }
 
   $self->_update_input($input, $email);
 
